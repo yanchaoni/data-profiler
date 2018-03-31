@@ -10,7 +10,7 @@ class DataProfiler():
 		"""
 		input_path_list: a list of path of datasets
 		"""
-		self.sc = SparkContext()
+		self.spark =  SparkSession.builder.appName("DataProfiler").config("spark.some.config.option", "some-value").getOrCreate()
 		self.input_list = input_path_list
 		self.num_of_table = len(input_path_list)
 		self.tables = handle_input(self.sc, input_path_list)
