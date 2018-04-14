@@ -5,11 +5,18 @@ from pyspark.sql import DataFrame
 
 SELF_DEFINED_FUNCTION = ["value_count"]
 
+"""
+Input:
+    tables: a list of all the tables
+    func_str: a string of function name to apply
+    table_indexes: the index of the table to apply function
+    col_names: a list of column names in this table
+    arg_str: extra arguements
 
+Output:
+    result: a dataframe of columns with function applied
+"""
 def per_table_evaluate(tables, func_str, table_indexes, col_names=None, arg_str=None):
-#     print(table_indexes, col_names)
-#     print("table index: {0}".format(table_indexes))
-#     print( "tables[{0}].".format(table_indexes))
     if col_names==None:
         col_names = tables[table_indexes].columns
     if func_str in SELF_DEFINED_FUNCTION:
@@ -30,9 +37,18 @@ def per_table_evaluate(tables, func_str, table_indexes, col_names=None, arg_str=
         result = eval(func)
     return result
 
+    """
+    Input:
+        tables: a list of all the tables
+        func_str: a string of function name to apply
+        col_names: a list of column names, each entry is a list of column names in the respective table
+        arg_str: extra arguements
+
+    Output:
+        result: a list of dataframe results
+    """
 def single_column_evaluate(tables, func_str, table_indexes, col_names=None, arg_str=None):
     profile=[]
-# handle col_name not string
     assert isinstance(table_indexes, list), "table_indexes must be list of int!"
     assert isinstance(col_names, list), "col_names must be list of str!"
     assert len(table_indexes) ==  len(col_names), "Number of tables and number of column sets does not match: {0} != {1}".format(len(table_indexes), len(col_names))
@@ -44,7 +60,7 @@ def single_column_evaluate(tables, func_str, table_indexes, col_names=None, arg_
 
     """
     Input:
-        table: the table to take a take a look at
+        table: the table to take a look at
         col_names: a list of column name to do value count
         arg_str: extra arguements
 
