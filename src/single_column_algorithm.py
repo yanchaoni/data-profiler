@@ -1,13 +1,12 @@
 from pyspark.sql import Row
 from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
-sc = SparkContext('local')
-spark = SparkSession(sc)
+
 
 def per_table_evaluate(tables, func_str, table_indexes, col_names, arg_str=None):
-    print(table_indexes, col_names)
-    print("table index: {0}".format(table_indexes))
-    print( "tables[{0}].".format(table_indexes))
+#     print(table_indexes, col_names)
+#     print("table index: {0}".format(table_indexes))
+#     print( "tables[{0}].".format(table_indexes))
     if isinstance(col_names, str):
         cols ="'" + col_names + "'"
     else:
@@ -37,22 +36,25 @@ def single_column_evaluate(tables, func_str, table_indexes, col_names, arg_str=N
 # handle table index not list
 # handle function cannot apply on col
 # handle col_name not string
+        assert isinstance(table_indexes, list), "table_indexes must be either int or list of int"
         assert not isinstance(col_names, str), "Column names for each table are required!"
         assert len(table_indexes) ==  len(col_names), "Number of tables and number of column sets does not match: {0} != {1}".format(len(table_indexes), len(col_names))
         for table_index, col_name in zip(table_indexes, col_names):
             profile += [per_table_evaluate(tables, func_str, table_index, col_name, arg_str)]
     return profile
 
-def main():
-        data1 = sc.parallelize([[1,"a"],[3,"c"]])           # => RDD
-        data1 = data1.map(lambda x: Row(k1 = x[0], k2 = x[1]))
-        table = spark.createDataFrame(data1)
-        tables = []
-        tables.append(table)
-        tables.append(table)
-        results = single_column_evaluate(tables, "avg", [0, 1], [0, ["k1", "k2"]], None)
-        for result in results:
-            result.show()
+# def main():
+#     sc = SparkContext('local')
+#     spark = SparkSession(sc)
+#     data1 = sc.parallelize([[1,"a"],[3,"c"]])           # => RDD
+#     data1 = data1.map(lambda x: Row(k1 = x[0], k2 = x[1]))
+#     table = spark.createDataFrame(data1)
+#     tables = []
+#     tables.append(table)
+#     tables.append(table)
+#     results = single_column_evaluate(tables, "avg", [0, 1], ["k1", ["k1", "k2"]], None)
+#     for result in results:
+#         result.show()
 
 if __name__ == "__main__":
     main()
