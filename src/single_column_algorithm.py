@@ -2,11 +2,18 @@ from pyspark.sql import Row
 from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
 
+SELF_DEFINED_FUNCTION = ["value_count"]
 
-def per_table_evaluate(tables, func_str, table_indexes, col_names, arg_str=None):
+
+def per_table_evaluate(tables, func_str, table_indexes, col_names=None, arg_str=None):
 #     print(table_indexes, col_names)
 #     print("table index: {0}".format(table_indexes))
 #     print( "tables[{0}].".format(table_indexes))
+    if col_names==None:
+        col_names = tables[table_indexes].columns
+    if func_str in SELF_DEFINED_FUNCTION:
+        func = "{}({}, {}, {})".format(func_str, tables[table_indexes], col_names, arg_str)
+        return eval(func)
     if isinstance(col_names, str):
         cols ="'" + col_names + "'"
     else:
@@ -28,7 +35,7 @@ def per_table_evaluate(tables, func_str, table_indexes, col_names, arg_str=None)
         result = eval(func)
     return result
 
-def single_column_evaluate(tables, func_str, table_indexes, col_names, arg_str=None):
+def single_column_evaluate(tables, func_str, table_indexes, col_names=None, arg_str=None):
     profile=[]
     if isinstance(table_indexes, int): # 1 -> 1/many
         profile += [per_table_evaluate(tables, func_str, table_indexes, col_names, arg_str)]
@@ -42,6 +49,28 @@ def single_column_evaluate(tables, func_str, table_indexes, col_names, arg_str=N
         for table_index, col_name in zip(table_indexes, col_names):
             profile += [per_table_evaluate(tables, func_str, table_index, col_name, arg_str)]
     return profile
+
+
+
+    """
+    Input:
+        table: the table to take a take a look at
+        col_names: a list of column name to do value count
+        arg_str: extra arguements
+
+    Output:
+        result: a list of dataframe of value count result
+    """
+def value_count(table, col_names, arg_str=None):
+    result = []
+    for col in col_names:
+        try:
+            result.append(table.groupby(col).count())
+        except:
+            print("Cannot resolve column: {}".format(col))
+            continue
+    return result
+
 
 # def main():
 #     sc = SparkContext('local')
