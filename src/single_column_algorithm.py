@@ -13,7 +13,7 @@ def per_table_evaluate(tables, func_str, table_indexes, col_names=None, arg_str=
     if col_names==None:
         col_names = tables[table_indexes].columns
     if func_str in SELF_DEFINED_FUNCTION:
-        func = "{}({}, {}, {})".format(func_str, tables[table_indexes], col_names, arg_str)
+        func = "{}(tables[{}], {}, {})".format(func_str, table_indexes, col_names, arg_str)
         print(func)
         return eval(func)
     if arg_str is None:
@@ -73,7 +73,8 @@ def main():
     tables.append(table)
     results = single_column_evaluate(tables, "value_count", [0, 1], [["k1"], ["k1", "k2"]], None)
     for result in results:
-        result.show()
+        for df in result:
+            df.show()
 
 if __name__ == "__main__":
     main()
