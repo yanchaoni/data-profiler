@@ -3,7 +3,7 @@ from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
 from pyspark.sql import DataFrame
 
-SELF_DEFINED_FUNCTION = ["value_count","cat_describe"]
+SELF_DEFINED_FUNCTION = ["value_count","cat_describe", "distinct_count"]
 
 """
 Input:
@@ -91,7 +91,7 @@ def cat_describe(table,col_names, arg_str = None):
 			cat_names.append(di[0])
 	if len(cat_names) == 0:
 		print("cannot perform categorical analysis on the tables and columns provided, please check the column names and types.")
-		return 
+		return
 
 	def single_cat(table,name):
 		counts = table.count()
@@ -104,20 +104,33 @@ def cat_describe(table,col_names, arg_str = None):
 	dt = spark.createDataFrame(values, tuple(['count','uniques','mode','mode_count']))
 	return dt
 
+	"""
+	Input:
+		table: the table to take a look at
+		col_names: a list of column name to do value count
+		arg_str: extra arguements
+
+	Output:
+		result: a list of dataframe of value count result
+	"""
+def distinct_count(table, col_names, arg_str=None):
+    try:
+        uniques = table.select(col_names).distinct().count()
+    except:
+        print("Cannot resolve column: {}".format(col))
+    return uniques
 
 def main():
-	sc = SparkContext('local')
-	spark = SparkSession(sc)
-	data1 = sc.parallelize([[1,"a"],[3,"c"]])           # => RDD
-	data1 = data1.map(lambda x: Row(k1 = x[0], k2 = x[1]))
-	table = spark.createDataFrame(data1)
-	tables = []
-	tables.append(table)
-	tables.append(table)
-	results = single_column_evaluate(tables, "value_count", [0, 1], [["k1"], ["k1", "k2"]], None)
-	for result in results:
-		for df in result:
-			df.show()
+    sc = SparkContext('local')
+    spark = SparkSession(sc)
+    data1 = sc.parallelize([[1,"a"],[3,"c"]])           # => RDD
+    data1 = data1.map(lambda x: Row(k1 = x[0], k2 = x[1]))
+    table = spark.createDataFrame(data1)
+    tables = []
+    tables.append(table)
+    tables.append(table)
+    results = single_column_evaluate(tables, "distinct_count", [0, 1], None, None)
+    print(results)
 
 if __name__ == "__main__":
 	main()
