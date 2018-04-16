@@ -3,7 +3,7 @@ from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
 from pyspark.sql import DataFrame
 
-SELF_DEFINED_FUNCTION = ["value_count","cat_describe", "distinct_count"]
+SELF_DEFINED_FUNCTION = ["value_count","cat_describe", "distinct_count", "unique_count"]
 
 """
 Input:
@@ -107,7 +107,7 @@ def cat_describe(table,col_names, arg_str = None):
 	"""
 	Input:
 		table: the table to take a look at
-		col_names: a list of column name to do value count
+		col_names: a list of column name to do distinct_count
 		arg_str: extra arguements
 
 	Output:
@@ -115,10 +115,27 @@ def cat_describe(table,col_names, arg_str = None):
 	"""
 def distinct_count(table, col_names, arg_str=None):
     try:
-        uniques = table.select(col_names).distinct().count()
+        from pyspark.sql.functions import col, countDistinct
+        uniques = table.agg(*(countDistinct(col(c)).alias(c) for c in col_names))
     except:
-        print("Cannot resolve column: {}".format(col))
+        print("Cannot resolve column: {}".format(col_names))
     return uniques
+
+	"""
+	Input:
+		table: the table to take a look at
+		col_names: a list of column name to do null_count
+		arg_str: extra arguements
+
+	Output:
+		result: a list of dataframe of null count result
+	"""
+def null_count(table, col_names, arg_str=None):
+    try:
+        nulls = table.select([count(when(isnan(c), c)).alias(c) for c in col_names])
+    except:
+        print("Cannot resolve column: {}".format(col_names))
+    return nulls
 
 def main():
     sc = SparkContext('local')
