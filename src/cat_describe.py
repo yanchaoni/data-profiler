@@ -9,7 +9,8 @@ import time
 #the bucket number. we convert string x to 
 #col1 comes from table.select(name)
 
-#use how many hash functions
+#use joining_path_hash to output column similarities
+#to be updated: how to integrate numerical-formed categorical vlaues into analysis
 
 def signature(table,name, a_array, b_array, c_prime):
 	hashnum = len(a_array)
@@ -19,7 +20,7 @@ def signature(table,name, a_array, b_array, c_prime):
 			string_hash = binascii.crc32(bytes(row[name],'utf-8')) & 0xffffffff
 		except:
 			continue
-		row_hash = (a_array*string_hash+b_array)//c_prime
+		row_hash = (a_array*string_hash+b_array) % c_prime
 		need_change = row_hash < hashmins
 		hashmins[need_change] = row_hash[need_change]
 	hashmins = [i.item() for i in hashmins]
@@ -77,7 +78,7 @@ def get_jaccard_similarity(tables,t1,t2,cname1,cname2, hashnum = 100, option = '
 	if option == 'naive':
 		num_inter = (tables[t1].select(cname1)).intersect(tables[t2].select(cname2)).count()
 		num_uion = (tables[t1].select(cname1)).unionAll(tables[t2].select(cname2)).distinct().count()
-		jaccard_similarity = num_inter/num_uion
+		jaccard_similarity = round(num_inter/num_uion,2)
 	return jaccard_similarity
 
 def joining_path_hash(tables,table_ind = None, hashnum = 100):
@@ -122,13 +123,39 @@ def joining_path_naive(tables, table_ind = None):
 					if naive_js != 0:
 						js_rows.append((at_ind,ac_name,bt_ind,bc_name,naive_js))
 	result = spark.createDataFrame(js_rows,tuple(['at_ind','bt_ind','ac_name','bc_name','similarity']))
+	result = result.sort("similarity",ascending = False)
 	end = time.time()
 	print(end - start)
 	return result
 
 
+#check if there is any collisions in our hashing functions
+# num_distinct = []
+# for i in range(100):
+# 	hash_set = set()
+# 	for row in parking.select('plate_id').rdd.collect():
+# 		try:
+# 			string_hash = binascii.crc32(bytes(row['plate_id'],'utf-8')) & 0xffffffff
+# 		except:
+# 			continue
+# 		row_hash = (a_array[i]*string_hash+b_array[i])//c_prime
+# 		hash_set.add(row_hash)
+# 	num_distinct.append(len(hash_set))
 
-
+# row_hash_num = []
+# for row in parking.select('plate_id').rdd.collect():
+# 	try:
+# 		string_hash = binascii.crc32(bytes(row['plate_id'],'utf-8')) & 0xffffffff
+# 	except:
+# 		continue
+# 	row_hash = (a_array*string_hash+b_array)//c_prime
+# 	row_hash_num.append(list(row_hash))
+# set_hash_dist = []
+# for i in range(100):
+# 	hash_set = set()
+# 	for item in row_hash_num:
+# 		hash_set.add(item)
+# 	set_hash_dist.append(len(hash_set))
 
 # def __main__():
 # 	path1 = "/user/ecc290/HW1data/parking-violations-header.csv"
