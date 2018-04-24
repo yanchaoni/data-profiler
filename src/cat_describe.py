@@ -4,6 +4,8 @@ import numpy as np
 import binascii
 from csv import reader
 import time
+from pyspark.sql.types import FloatType
+from pyspark.sql.functions import udf
 #the hash function we use would be of the format z = (a*x+b)/c, where num_buk is the number of bucket we assigned to hash,
 #a, b is the random number we sample from range(num_buk), with no coincidence, c is the smallest prime number larger than
 #the bucket number. we convert string x to 
@@ -12,9 +14,12 @@ import time
 #use joining_path_hash to output column similarities
 #to be updated: how to integrate numerical-formed categorical vlaues into analysis
 
+#added min_hash_count
 def signature(table,name, a_array, b_array, c_prime):
 	hashnum = len(a_array)
 	hashmins = np.array([c_prime+1]* hashnum)
+	#min hash count from here
+	min_hash_count = np.zeros(hashnum)
 	for row in table.select(name).rdd.collect():
 		try:
 			string_hash = binascii.crc32(bytes(row[name],'utf-8')) & 0xffffffff
@@ -22,9 +27,13 @@ def signature(table,name, a_array, b_array, c_prime):
 			continue
 		row_hash = (a_array*string_hash+b_array) % c_prime
 		need_change = row_hash < hashmins
+		same_thing = row_hash == hashmins
 		hashmins[need_change] = row_hash[need_change]
+		min_hash_count[need_change] = 1
+		min_hash_count[same_thing] += 1
 	hashmins = [i.item() for i in hashmins]
-	return hashmins
+	min_hash_count = [int(i.item()) for i in min_hash_count]
+	return hashmins, min_hash_count
 
 def single_table_signature(table, table_ind, a_array, b_array, c_prime):
 	t_info = table.dtypes
@@ -32,16 +41,16 @@ def single_table_signature(table, table_ind, a_array, b_array, c_prime):
 	for col_info in t_info:
 		if col_info[1] == 'string':
 			name = col_info[0]
-			t_c_min = signature(table,name,a_array,b_array,c_prime)
+			t_c_min, t_c_min_count = signature(table,name,a_array,b_array,c_prime)
 			hashnum = len(t_c_min)
-			row_zip = zip([table_ind]*hashnum, [name]*hashnum, range(hashnum), t_c_min)
+			row_zip = zip([table_ind]*hashnum, [name]*hashnum, range(hashnum), t_c_min, t_c_min_count)
 			sig_mat_rows.extend([row_val for row_val in row_zip])
-	table_cnames = tuple(['table_index','col_name','hash_index','hash_value'])
+	table_cnames = tuple(['table_index','col_name','hash_index','hash_value', 'min_hash_count'])
 	return spark.createDataFrame(sig_mat_rows,table_cnames)
 
 def get_hash_coeff(hashnum): 
-	a_array = np.random.randint(2**32,size = hashnum)
-	b_array = np.random.randint(2**32, size = hashnum)
+	a_array = np.random.choice(2**32,size = hashnum, replace = False)
+	b_array = np.random.randint(2**32, size = hashnum, replace = False)
 	c_prime = 4294967311
 	return a_array, b_array, c_prime
 
@@ -81,28 +90,61 @@ def get_jaccard_similarity(tables,t1,t2,cname1,cname2, hashnum = 100, option = '
 		jaccard_similarity = round(num_inter/num_uion,2)
 	return jaccard_similarity
 
-def joining_path_hash(tables,table_ind = None, hashnum = 100):
+#write other format to summarize A_contain_B and B_contain_A information
+def joining_path_hash(tables,threshold,table_ind = None, hashnum = 100, containing_check = False):
 	start = time.time()
 	ar = multiple_table_signature(tables,table_ind,hashnum)
 	print("get the signature !!")
-	a1 = ar.selectExpr("table_index as at_ind", "col_name as ac_name", "hash_index as ah_ind", "hash_value as ah_val")
-	b1 = ar.selectExpr("table_index as bt_ind", "col_name as bc_name", "hash_index as bh_ind", "hash_value as bh_val")
+	a1 = ar.selectExpr("table_index as at_ind", "col_name as ac_name", "hash_index as ah_ind", "hash_value as ah_val", "min_hash_count as ah_mincount")
+	b1 = ar.selectExpr("table_index as bt_ind", "col_name as bc_name", "hash_index as bh_ind", "hash_value as bh_val", "min_hash_count as bh_mincount")
 	a1.createOrReplaceTempView("a1")
 	b1.createOrReplaceTempView("b1")
-	result = spark.sql("select at_ind, ac_name, bt_ind, bc_name, count(*) as counts from \
-		(select * from a1 inner join b1 on ah_ind = bh_ind and ah_val = bh_val where at_ind < bt_ind) \
+	#how to incorporate the min_hash_count into the join table
+	result = spark.sql("select at_ind, ac_name, bt_ind, bc_name, count(*) as counts, mean(after_join) as aj_contribution from \
+		(select a1.*, b1.*, ah_mincount*bh_mincount as after_join  from a1 inner join b1 on ah_ind = bh_ind and ah_val = bh_val where at_ind < bt_ind) \
 		group by at_ind, bt_ind,ac_name, bc_name order by counts desc")
 	result = result.withColumn("similarity",result['counts']/hashnum).drop("counts")
+	result = result.filter(result.similarity > threshold)
 	end = time.time()
 	print(end - start)
+	if containing_check:
+		A_contain_B = spark.sql("select at_ind, ac_name, bt_ind, bc_name, count(*) as A_contain_B_count from \
+			(select * from a1 inner join b1 on ah_ind = bh_ind and ah_val < bh_val where at_ind < bt_ind) \
+			group by at_ind, bt_ind,ac_name, bc_name")
+		B_contain_A = spark.sql("select at_ind, ac_name, bt_ind, bc_name, count(*) as B_contain_A_count from \
+			(select * from a1 inner join b1 on ah_ind = bh_ind and ah_val > bh_val where at_ind < bt_ind) \
+			group by at_ind, bt_ind,ac_name, bc_name")
+		A_contain_B = A_contain_B.withColumn("A_contain_B_sim",A_contain_B['A_contain_B_count']/hashnum).drop("A_contain_B_count")
+		B_contain_A = B_contain_A.withColumn("B_contain_A_sim",B_contain_A['B_contain_A_count']/hashnum).drop("B_contain_A_count")
+		inter = result.join(A_contain_B, on = ['at_ind','ac_name','bt_ind','bc_name'], how = 'left_outer')
+		result = inter.join(B_contain_A, on = ['at_ind','ac_name','bt_ind','bc_name'], how = 'left_outer')
+		result = result.fillna(0)
 	return result
 
+def multi_set_resemble(tables, tthreshold = 0.5, table_ind = None, hashnum = 100, containing_check = False):
+	result = joining_path_hash(tables,threshold, table_ind,hashnum, containing_check)
+	if result.count() != 0:
+	#calculate the after_join_size based on acol in table A and bcol in table B
+		result = result.withColumn("aj_size",result['similarity']/(1+result['similarity'])*result['aj_contribution'])
+		#compute the distinct A and B columns values here, in the future, could be pre-computed and stored somewhere to fasten the multiset resemblence computation.
+		distinct_num = {}
+		for row in result.rdd.collect():
+			t1, n1 = row['at_ind'], row['ac_name']
+			t2, n2 = row['bt_ind'], row['bc_name']
+			if (t1,n1) not in distinct_num:
+				distinct_num[(t1,n1)] = tables[t1].select(n1).distinct().count()
+			if (t2,n2) not in distinct_num:
+				distinct_num[(t2,n2)] = tables[t2].select(n2).distinct().count()
+		calculate_udf = udf(lambda a,b,x,y,t : t*(distinct_num[(a,b)]+distinct_num[(x,y)]), FloatType())
+		result = result.withColumn("aj_size",calculate_udf(result.at_ind,result.ac_name,result.bt_ind,result.bc_name,result.aj_size))
+		#result = result.withColumn("aj_size", result['aj_size']*(distinct_num[(result['at_ind'],result['ac_name'])] + distinct_num[(result['bt_ind'],result['bc_name'])]))
+	return result
 
 def get_table_category(table):
 	table_info = table.dtypes
 	return [i[0] for i in table_info if i[1] == 'string']
 
-def joining_path_naive(tables, table_ind = None):
+def joining_path_naive(tables, table_ind = None, threshold):
 	start = time.time()
 	if table_ind == None:
 		table_ind = range(len(tables))
@@ -123,7 +165,7 @@ def joining_path_naive(tables, table_ind = None):
 					if naive_js != 0:
 						js_rows.append((at_ind,ac_name,bt_ind,bc_name,naive_js))
 	result = spark.createDataFrame(js_rows,tuple(['at_ind','bt_ind','ac_name','bc_name','similarity']))
-	result = result.sort("similarity",ascending = False)
+	result = result.sort("similarity",ascending = False).filter(result.similarity > threshold)
 	end = time.time()
 	print(end - start)
 	return result
