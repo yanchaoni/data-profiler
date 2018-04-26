@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from pyspark.sql import Row
 from pyspark.context import SparkContext
 from pyspark.sql.session import SparkSession
@@ -114,23 +113,31 @@ def cat_describe(table,col_names, arg_str = None):
 	Output:
 		result: a list of dataframe of value count result
 	"""
-def distinct_count(table, col_names, arg_str=None):
+def distinct_count(table, col_names, method="exact"):
+    print(col_names, method)
     try:
-        from pyspark.sql.functions import col, countDistinct
-        uniques = table.agg(*(countDistinct(col(c)).alias(c) for c in col_names))
+        if method == "exact" or method == None:
+            from pyspark.sql.functions import col, countDistinct
+            uniques = table.agg(*(countDistinct(col(c)).alias(c) for c in col_names))
+        elif method == "approx":
+            print("Here")
+            from pyspark.sql.functions import col, approx_count_distinct
+            uniques = table.agg(*(approx_count_distinct(col(c)).alias(c) for c in col_names))
+        else:
+            raise ValueError("Unknown method {}, choose between ['exact', 'approx']".format(method))
     except:
         print("Cannot resolve column: {}".format(col_names))
     return uniques
 
-	"""
-	Input:
-		table: the table to take a look at
-		col_names: a list of column name to do null_count
-		arg_str: extra arguements
+"""
+Input:
+    table: the table to take a look at
+    col_names: a list of column name to do null_count
+    arg_str: extra arguements
 
-	Output:
-		result: a list of dataframe of null count result
-	"""
+Output:
+    result: a list of dataframe of null count result
+"""
 def null_count(table, col_names, arg_str=None):
     try:
         nulls = table.select([count(when(isnan(c), c)).alias(c) for c in col_names])
@@ -141,14 +148,15 @@ def null_count(table, col_names, arg_str=None):
 def main():
     sc = SparkContext('local')
     spark = SparkSession(sc)
-    data1 = sc.parallelize([[1,"a"],[3,"c"]])           # => RDD
-    data1 = data1.map(lambda x: Row(k1 = x[0], k2 = x[1]))
-    table = spark.createDataFrame(data1)
+    #spark.debug.maxToStringFields=100
+    parking = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/parking-violations-header.csv")
+    _open = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/open-violations-header.csv")
     tables = []
-    tables.append(table)
-    tables.append(table)
-    results = single_column_evaluate(tables, "distinct_count", [0, 1], None, None)
-    print(results)
+    tables.append(parking)
+    tables.append(parking)
+    results = single_column_evaluate(tables, "value_count", [0, 1], [["registration_state"], ["registration_state"]])
+    for table in results:
+        table.show()
 
 if __name__ == "__main__":
 	main()
