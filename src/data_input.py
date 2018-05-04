@@ -9,7 +9,7 @@ input_list: a list of input path
 Output:
 result: a list of data frame
 """
-def handle_input(spark, input_list, categorical_dictionary=None):
+def handle_input(spark, input_list, categorical_dictionary={}):
 	result = []
 	for i in range(len(input_list)):
 		if i in categorical_dictionary:
@@ -36,7 +36,7 @@ def handle_single_input(spark, path, categorical_cols=[]):
 	elif filetype == 'json':
 		table = spark.read.json(path)
 	elif filetype == 'csv':
-		table = spark.read.csv(path)
+		table = spark.read.format('csv').options(header='true',inferschema='true').load(path)
 	else:
 		####TO DO can hanld multiple input type
 		table = None
