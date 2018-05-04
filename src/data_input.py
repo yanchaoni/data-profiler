@@ -33,6 +33,8 @@ def handle_single_input(spark, path, categorical_cols=[]):
 	name, filetype = path.split('.')
 	if filetype == 'txt':
 		table = spark.read.text(path)
+	elif filetype == 'json':
+		table = spark.read.json(path)
 	else:
 		####TO DO can hanld multiple input type
 		table = None
