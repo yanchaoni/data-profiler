@@ -157,6 +157,6 @@ def main():
     results = single_column_evaluate(tables, "value_count", [0, 1], [["registration_state"], ["registration_state"]])
     for table in results:
         table.show()
-
+#summons_number
 if __name__ == "__main__":
 	main()
