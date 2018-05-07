@@ -114,13 +114,11 @@ def cat_describe(table,col_names, arg_str = None):
 		result: a list of dataframe of value count result
 	"""
 def distinct_count(table, col_names, method="exact"):
-    print(col_names, method)
     try:
         if method == "exact" or method == None:
             from pyspark.sql.functions import col, countDistinct
             uniques = table.agg(*(countDistinct(col(c)).alias(c) for c in col_names))
         elif method == "approx":
-            print("Here")
             from pyspark.sql.functions import col, approx_count_distinct
             uniques = table.agg(*(approx_count_distinct(col(c)).alias(c) for c in col_names))
         else:
