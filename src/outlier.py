@@ -3,10 +3,10 @@ from math import sqrt
 from operator import add
 from pyspark.mllib.clustering import KMeans, KMeansModel
 
-def nparray2tuple(x):
-    result = ()
-    for xi in x:
-        result += (float(xi), )
+def tuple2nparray(x, indices):
+    result = np.array([])
+    for indice in indices:
+        result = np.append(result, x[indice])
     return result
 
 def error(point, clusters):
@@ -18,17 +18,22 @@ def isOutlier(x, clusters, cutoff_distance):
     return (mindist > cutoff_distance) * 1
 
 # X: RDD of selected columns
-def outliers_RDD(X, num_clusters, cutoff_distance, maxIterations=10, initializationMode="random"):
+def outliers_RDD(table_rdd, indices, num_clusters, cutoff_distance, maxIterations=10, initializationMode="random", wssse=False):
+    X = table_rdd.map(lambda x: tuple2nparray(x, indices))
     clusters = KMeans.train(X, num_clusters, maxIterations=maxIterations, initializationMode=initializationMode)
-    WSSSE = vso.map(lambda point: error(point, clusters)).reduce(add)
-    print("Within Set Sum of Squared Error, k = " + str(num_clusters) + ": " + str(WSSSE))
-    outlier = X.map(lambda x: np.append(x, isOutlier(x, clusters, cutoff_distance))).filter(lambda x: x[-1])
-    return outlier.map(lambda x: tuple(x[:-1]))
+    if wssse:
+        WSSSE = X.map(lambda point: error(point, clusters)).reduce(add)
+        print("Within Set Sum of Squared Error, k = " + str(num_clusters) + ": " + str(WSSSE))
+    outlier = table_rdd.map(lambda x: tuple(x) + (isOutlier(tuple2nparray(x, indices), clusters, cutoff_distance), ))
+    return outlier.filter(lambda x: x[-1]).map(lambda x: x[:-1])
 
-def outliers(table, col_names, num_clusters, cutoff_distance, maxIterations=10, initializationMode="random"):
-    X = table[col_names].rdd.map(list).map(np.array)
-    result = outliers_RDD(X, num_clusters, cutoff_distance, maxIterations, initializationMode).map(nparray2tuple)
-    result = spark.createDataFrame(result, tuple(col_names))
-    print("There are {} of outliers.".format(result.count()))
-    return spark.createDataFrame(result, tuple(col_names))
-
+# wssse: True if within set sum of square is needed
+def outliers(table, col_names, num_clusters, cutoff_distance, maxIterations=10, initializationMode="random", wssse=False):
+    columns = table.columns
+    indices = []
+    for col_name in col_names:
+        indices.append(columns.index(col_name))
+    result = outliers_RDD(table.rdd, indices, num_clusters, cutoff_distance, maxIterations, initializationMode, wssse)
+    result = spark.createDataFrame(result, tuple(columns))
+    print("There are {} outliers.".format(result.count()))
+    return result
