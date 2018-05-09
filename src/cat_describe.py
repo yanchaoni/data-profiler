@@ -14,6 +14,9 @@ from pyspark.sql.functions import udf
 #use joining_path_hash to output column similarities
 #to be updated: how to integrate numerical-formed categorical vlaues into analysis
 
+def init_spark():
+	return SparkSession.builder.appName("DataProfiler").config("spark.some.config.option", "some-value").getOrCreate()
+
 #added min_hash_count
 def signature(table,name, a_array, b_array, c_prime):
 	hashnum = len(a_array)
@@ -35,7 +38,7 @@ def signature(table,name, a_array, b_array, c_prime):
 	min_hash_count = [int(i.item()) for i in min_hash_count]
 	return hashmins, min_hash_count
 
-def single_table_signature(table, table_ind, a_array, b_array, c_prime, spark):
+def single_table_signature(table, table_ind, a_array, b_array, c_prime, spark=init_spark()):
 	t_info = table.dtypes
 	sig_mat_rows = []
 	for col_info in t_info:
@@ -69,7 +72,7 @@ def table_has_categorical(table):
 			return True 
 	return False
 
-def multiple_table_signature(tables, a_array, b_array, c_prime, table_ind = None, spark):
+def multiple_table_signature(tables, a_array, b_array, c_prime, table_ind = None, spark=init_spark()):
 	if table_ind == None:
 		table_ind = range(len(tables))
 	has_cat = [table_has_categorical(tables[i]) for i in table_ind]
@@ -97,7 +100,7 @@ def get_jaccard_similarity(tables,t1,t2,cname1,cname2, hashnum = 100, option = '
 	return jaccard_similarity
 
 #write other format to summarize A_contain_B and B_contain_A information
-def joining_path_hash(tables,threshold = 0,table_ind = None, hashnum = 100, containing_check = False, spark):
+def joining_path_hash(tables,threshold = 0,table_ind = None, hashnum = 100, containing_check = False, spark=init_spark()):
 	start = time.time()
 	a_array , b_array ,c_prime = get_hash_coeff(hashnum)
 	ar = multiple_table_signature(tables,a_array, b_array, c_prime, table_ind, spark)
@@ -129,7 +132,7 @@ def joining_path_hash(tables,threshold = 0,table_ind = None, hashnum = 100, cont
 	return result
 
 #the function that allows the finding of the specific column's best joining candidate
-def joining_path_hash_specific(tables,table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False, spark):
+def joining_path_hash_specific(tables,table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False, spark=init_spark()):
 	start = time.time()
 	assert dict(tables[table_ind].dtypes)[col_name] == 'string', "please select a categorical column to check its joining path."
 	a_array , b_array ,c_prime = get_hash_coeff(hashnum)
@@ -166,7 +169,7 @@ def joining_path_hash_specific(tables,table_ind, col_name, threshold = 0, hashnu
 	return result
 
 #The function to compute the things and get computed joininig strength
-def multi_set_resemble(tables, threshold = 0, table_ind = None, hashnum = 100, containing_check = False, spark):
+def multi_set_resemble(tables, threshold = 0, table_ind = None, hashnum = 100, containing_check = False, spark=init_spark()):
 	result = joining_path_hash(tables,threshold, table_ind,hashnum, containing_check, spark)
 	if result.count() != 0:
 	#calculate the after_join_size based on acol in table A and bcol in table B
@@ -186,7 +189,7 @@ def multi_set_resemble(tables, threshold = 0, table_ind = None, hashnum = 100, c
 	return result
 
 #correspondingly give a thing that compute specific multi_set_resemble for a column, change joining_path_hash to joining_path_hash specific
-def multi_set_resemble_specific(tables, table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False, spark):
+def multi_set_resemble_specific(tables, table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False, spark=init_spark()):
 	result = joining_path_hash_specific(tables, table_ind, col_name, threshold, hashnum, containing_check, spark)
 	if result.count() != 0:
 	#calculate the after_join_size based on acol in table A and bcol in table B
