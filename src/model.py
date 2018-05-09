@@ -1,6 +1,9 @@
 from pyspark.sql import SparkSession
 from data_input import handle_input
 from multi_column_algorithm import describe_table
+from single_column_algorithm import single_column_evaluate
+from cat_describe import multi_set_resemble
+from outlier import outliers
 import numpy as np
 import pdb
 
@@ -42,6 +45,25 @@ class DataProfiler():
 				describe_table(self.tables[i])
 		except ValueError:
 			print("indexes need to be a list of int")
+
+	def single_column_evaluation(self, func_str, table_indexes, col_names=None, arg_str=None):
+		"""
+		Evaluate a single column, numerical and categorical summary
+		"""
+		return single_column_evaluate(self.tables, func_str, table_indexes, col_names, arg_str)
+
+	def multi_set_resemble(self, tables, threshold = 0.5, table_ind = None, hashnum = 100, containing_check = False):
+		"""
+		Suggest a join path possibility
+		"""
+		return multi_set_resemble(tables, threshold, table_ind, hashnum, containing_check)
+
+
+	def outliers(self, table_index, col_names, num_clusters, cutoff_distance, maxIterations=10, initializationMode="random", wssse=False):
+		"""
+		Return records of outliers in specific columns of a table
+		"""
+		return outliers(self.tables[table_index], col_names, num_clusters, cutoff_distance, maxIterations, initializationMode, wssse)
 
 # d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv"],{0:["summons_number"]})
 # print(d.tables[0].schema)

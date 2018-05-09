@@ -121,7 +121,7 @@ def joining_path_hash(tables,threshold,table_ind = None, hashnum = 100, containi
 		result = result.fillna(0)
 	return result
 
-def multi_set_resemble(tables, tthreshold = 0.5, table_ind = None, hashnum = 100, containing_check = False):
+def multi_set_resemble(tables, threshold = 0.5, table_ind = None, hashnum = 100, containing_check = False):
 	result = joining_path_hash(tables,threshold, table_ind,hashnum, containing_check)
 	if result.count() != 0:
 	#calculate the after_join_size based on acol in table A and bcol in table B

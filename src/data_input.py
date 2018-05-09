@@ -32,9 +32,9 @@ result: a table in form of data frame
 def handle_single_input(spark, path, categorical_cols=[]):
 	name, filetype = path.split('.')
 	if filetype == 'txt':
-		table = spark.read.text(path)
+		table = spark.read.format('txt').options(header='true',inferschema='true').load(path)
 	elif filetype == 'json':
-		table = spark.read.json(path)
+		table = spark.read.format('json').options(header='true',inferschema='true').load(path)
 	elif filetype == 'csv':
 		table = spark.read.format('csv').options(header='true',inferschema='true').load(path)
 	else:
