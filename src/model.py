@@ -6,6 +6,7 @@ from cat_describe import multi_set_resemble,joining_path_hash,joining_path_hash_
 from outlier import outliers
 import numpy as np
 import pdb
+from pyspark.context import SparkContext
 
 class DataProfiler():
 	"Core System of data profiler project"
@@ -15,7 +16,7 @@ class DataProfiler():
 		input:
 		input_path_list: a list of path of datasets
 		categorical_dictionary: allow user to specify which column is categorical data type,
-		this input will take the type of a dictionary, where key is the index of the table, and 
+		this input will take the type of a dictionary, where key is the index of the table, and
 		value is a list of column name (string)
 
 
@@ -26,7 +27,8 @@ class DataProfiler():
 		self.tables: reference to a list of tables as data frame in the core system
 
 		"""
-		self.spark =  SparkSession.builder.appName("DataProfiler").config("spark.some.config.option", "some-value").getOrCreate()
+		sc = SparkContext('local')
+		self.spark =  SparkSession(sc) # .builder.appName("DataProfiler").config("spark.some.config.option", "some-value").getOrCreate()
 		self.input_list = input_path_list
 		self.num_of_table = len(input_path_list)
 		self.tables = handle_input(self.spark, input_path_list, categorical_dictionary)
@@ -75,6 +77,6 @@ class DataProfiler():
 		"""
 		return outliers(self.tables[table_index], col_names, num_clusters, cutoff_distance, maxIterations, initializationMode, wssse)
 
-d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv"],{0:["summons_number"]})
-print(d.multi_set_resemble())
+# d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv"],{0:["summons_number"]})
+# print(d.multi_set_resemble())
 

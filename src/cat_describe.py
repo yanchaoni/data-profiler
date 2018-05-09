@@ -1,6 +1,6 @@
 #table = spark.createDataFrame([('foo','lst',1),('max','lst',1),('lst','dt',2),('foo','show',3)],('k','t','v'))
 #table2 = spark.createDataFrame([('foo','max',3),('foo','vs',1),('lst','re',2)],('l','m','n'))
-import numpy as np 
+import numpy as np
 from pyspark.sql import SparkSession
 import binascii
 from csv import reader
@@ -9,14 +9,14 @@ from pyspark.sql.types import FloatType, StringType
 from pyspark.sql.functions import udf
 #the hash function we use would be of the format z = (a*x+b)/c, where num_buk is the number of bucket we assigned to hash,
 #a, b is the random number we sample from range(num_buk), with no coincidence, c is the smallest prime number larger than
-#the bucket number. we convert string x to 
+#the bucket number. we convert string x to
 #col1 comes from table.select(name)
 
 #use joining_path_hash to output column similarities
 #to be updated: how to integrate numerical-formed categorical vlaues into analysis
 
 def init_spark():
-	return SparkSession.builder.appName("DataProfiler").config("spark.some.config.option", "some-value").getOrCreate()
+	return None # SparkSession.builder.appName("DataProfiler").config("spark.some.config.option", "some-value").getOrCreate()
 
 #added min_hash_count
 def signature(table,name, a_array, b_array, c_prime):
@@ -52,7 +52,7 @@ def single_table_signature(table, table_ind, a_array, b_array, c_prime, spark=in
 	table_cnames = tuple(['table_index','col_name','hash_index','hash_value', 'min_hash_count'])
 	return spark.createDataFrame(sig_mat_rows,table_cnames)
 
-def get_hash_coeff(hashnum): 
+def get_hash_coeff(hashnum):
 	a_array = generate_hash_num(hashnum)
 	b_array = generate_hash_num(hashnum)
 	c_prime = 4294967311
@@ -70,7 +70,7 @@ def table_has_categorical(table):
 	t_info = table.dtypes
 	for t in t_info:
 		if t[1] == 'string':
-			return True 
+			return True
 	return False
 
 def multiple_table_signature(tables, a_array, b_array, c_prime, table_ind = None, spark=init_spark()):
