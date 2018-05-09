@@ -53,19 +53,19 @@ class DataProfiler():
 		return single_column_evaluate(self.tables, func_str, table_indexes, col_names, arg_str)
 
 	def joining_path_hash(self, threshold = 0,table_ind = None, hashnum = 100, containing_check = False):
-		return joining_path_hash(self.tables,threshold,table_ind, hashnum, containing_check)
+		return joining_path_hash(self.tables,threshold,table_ind, hashnum, containing_check, self.spark)
 
 	def joining_path_hash_specific(self, table_index, col_name, threshold = 0, hashnum = 100, containing_check = False):
-		return joining_path_hash_specific(self.tables,table_index, col_name, threshold, hashnum, containing_check)
+		return joining_path_hash_specific(self.tables,table_index, col_name, threshold, hashnum, containing_check, self.spark)
 
 	def multi_set_resemble(self, threshold = 0.5, table_ind = None, hashnum = 100, containing_check = False):
 		"""
 		Suggest a join path possibility
 		"""
-		return multi_set_resemble(self.tables, threshold, table_ind, hashnum, containing_check)
+		return multi_set_resemble(self.tables, threshold, table_ind, hashnum, containing_check, self.spark)
 
 	def multi_set_resemble_specific(self, table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False):
-		return multi_set_resemble_specific(self.tables, table_ind, col_name, threshold, hashnum, containing_check)
+		return multi_set_resemble_specific(self.tables, table_ind, col_name, threshold, hashnum, containing_check, self.spark)
 
 
 
@@ -75,6 +75,6 @@ class DataProfiler():
 		"""
 		return outliers(self.tables[table_index], col_names, num_clusters, cutoff_distance, maxIterations, initializationMode, wssse)
 
-# d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv"],{0:["summons_number"]})
-# print(d.tables[0].schema)
+d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv"],{0:["summons_number"]})
+print(d.multi_set_resemble())
 

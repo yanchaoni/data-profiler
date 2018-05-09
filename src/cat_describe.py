@@ -35,7 +35,7 @@ def signature(table,name, a_array, b_array, c_prime):
 	min_hash_count = [int(i.item()) for i in min_hash_count]
 	return hashmins, min_hash_count
 
-def single_table_signature(table, table_ind, a_array, b_array, c_prime):
+def single_table_signature(table, table_ind, a_array, b_array, c_prime, spark):
 	t_info = table.dtypes
 	sig_mat_rows = []
 	for col_info in t_info:
@@ -69,17 +69,17 @@ def table_has_categorical(table):
 			return True 
 	return False
 
-def multiple_table_signature(tables, a_array, b_array, c_prime, table_ind = None):
+def multiple_table_signature(tables, a_array, b_array, c_prime, table_ind = None, spark):
 	if table_ind == None:
 		table_ind = range(len(tables))
 	has_cat = [table_has_categorical(tables[i]) for i in table_ind]
 	table_ind = np.array(table_ind)[np.array(has_cat)]
 	table_ind = [i.item() for i in table_ind]
 	assert len(table_ind) > 0, "None of the tables provided contains categorical fields."
-	all_table_mat = single_table_signature(tables[table_ind[0]],table_ind[0],a_array,b_array,c_prime)
+	all_table_mat = single_table_signature(tables[table_ind[0]],table_ind[0],a_array,b_array,c_prime, spark)
 	if len(table_ind) > 1:
 		for tind in table_ind[1:]:
-			table_mat = single_table_signature(tables[tind],tind,a_array,b_array,c_prime)
+			table_mat = single_table_signature(tables[tind],tind,a_array,b_array,c_prime, spark)
 			all_table_mat = all_table_mat.unionAll(table_mat)
 	return all_table_mat
 
@@ -97,10 +97,10 @@ def get_jaccard_similarity(tables,t1,t2,cname1,cname2, hashnum = 100, option = '
 	return jaccard_similarity
 
 #write other format to summarize A_contain_B and B_contain_A information
-def joining_path_hash(tables,threshold = 0,table_ind = None, hashnum = 100, containing_check = False):
+def joining_path_hash(tables,threshold = 0,table_ind = None, hashnum = 100, containing_check = False, spark):
 	start = time.time()
 	a_array , b_array ,c_prime = get_hash_coeff(hashnum)
-	ar = multiple_table_signature(tables,a_array, b_array, c_prime, table_ind)
+	ar = multiple_table_signature(tables,a_array, b_array, c_prime, table_ind, spark)
 	print("get the signature !!")
 	a1 = ar.selectExpr("table_index as at_ind", "col_name as ac_name", "hash_index as ah_ind", "hash_value as ah_val", "min_hash_count as ah_mincount")
 	b1 = ar.selectExpr("table_index as bt_ind", "col_name as bc_name", "hash_index as bh_ind", "hash_value as bh_val", "min_hash_count as bh_mincount")
@@ -129,15 +129,15 @@ def joining_path_hash(tables,threshold = 0,table_ind = None, hashnum = 100, cont
 	return result
 
 #the function that allows the finding of the specific column's best joining candidate
-def joining_path_hash_specific(tables,table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False):
+def joining_path_hash_specific(tables,table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False, spark):
 	start = time.time()
 	assert dict(tables[table_ind].dtypes)[col_name] == 'string', "please select a categorical column to check its joining path."
 	a_array , b_array ,c_prime = get_hash_coeff(hashnum)
 	col_specific = tables[table_ind].select(col_name)
-	ar = single_table_signature(col_specific,0,a_array, b_array, c_prime)
+	ar = single_table_signature(col_specific,0,a_array, b_array, c_prime, spark)
 	remove_ind = list(range(len(tables)))
 	remove_ind.pop(table_ind)
-	br = multiple_table_signature(tables,a_array, b_array, c_prime, remove_ind)
+	br = multiple_table_signature(tables,a_array, b_array, c_prime, remove_ind, spark)
 	print("get the signature !!")
 	a1 = ar.selectExpr("table_index as at_ind", "col_name as ac_name", "hash_index as ah_ind", "hash_value as ah_val", "min_hash_count as ah_mincount")
 	b1 = br.selectExpr("table_index as bt_ind", "col_name as bc_name", "hash_index as bh_ind", "hash_value as bh_val", "min_hash_count as bh_mincount")
@@ -166,8 +166,8 @@ def joining_path_hash_specific(tables,table_ind, col_name, threshold = 0, hashnu
 	return result
 
 #The function to compute the things and get computed joininig strength
-def multi_set_resemble(tables, threshold = 0, table_ind = None, hashnum = 100, containing_check = False):
-	result = joining_path_hash(tables,threshold, table_ind,hashnum, containing_check)
+def multi_set_resemble(tables, threshold = 0, table_ind = None, hashnum = 100, containing_check = False, spark):
+	result = joining_path_hash(tables,threshold, table_ind,hashnum, containing_check, spark)
 	if result.count() != 0:
 	#calculate the after_join_size based on acol in table A and bcol in table B
 		result = result.withColumn("aj_size",result['similarity']/(1+result['similarity'])*result['aj_contribution'])
@@ -186,8 +186,8 @@ def multi_set_resemble(tables, threshold = 0, table_ind = None, hashnum = 100, c
 	return result
 
 #correspondingly give a thing that compute specific multi_set_resemble for a column, change joining_path_hash to joining_path_hash specific
-def multi_set_resemble_specific(tables, table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False):
-	result = joining_path_hash_specific(tables, table_ind, col_name, threshold, hashnum, containing_check)
+def multi_set_resemble_specific(tables, table_ind, col_name, threshold = 0, hashnum = 100, containing_check = False, spark):
+	result = joining_path_hash_specific(tables, table_ind, col_name, threshold, hashnum, containing_check, spark)
 	if result.count() != 0:
 	#calculate the after_join_size based on acol in table A and bcol in table B
 		result = result.withColumn("aj_size",result['similarity']/(1+result['similarity'])*result['aj_contribution'])
@@ -266,11 +266,11 @@ def joining_path_naive(tables, threshold, table_ind = None):
 # 	set_hash_dist.append(len(hash_set))
 
 # def __main__():
-path1 = "/user/ecc290/HW1data/parking-violations-header.csv"
-path2 = "/user/ecc290/HW1data/open-violations-header.csv"
-parking = spark.read.format('csv').options(header='true',inferschema='true').load(path1)
-parking = parking.withColumn("summons_number",parking["summons_number"].cast(StringType()))
-open_vio = spark.read.format('csv').options(header='true',inferschema='true').load(path2)
-open_vio = open_vio.withColumn("summons_number",open_vio["summons_number"].cast(StringType()))
-tables = [parking, open_vio]
+# path1 = "/user/ecc290/HW1data/parking-violations-header.csv"
+# path2 = "/user/ecc290/HW1data/open-violations-header.csv"
+# parking = spark.read.format('csv').options(header='true',inferschema='true').load(path1)
+# parking = parking.withColumn("summons_number",parking["summons_number"].cast(StringType()))
+# open_vio = spark.read.format('csv').options(header='true',inferschema='true').load(path2)
+# open_vio = open_vio.withColumn("summons_number",open_vio["summons_number"].cast(StringType()))
+# tables = [parking, open_vio]
 # 	join_results = joining_path(tables)

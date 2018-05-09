@@ -6,4 +6,4 @@ def describe_table(table):
 	describe table by combination of description of each column
 	"""
 
-	return None
+	return table.describe()
