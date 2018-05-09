@@ -4,7 +4,8 @@ from pyspark.sql.session import SparkSession
 from pyspark.sql import DataFrame
 
 
-SELF_DEFINED_FUNCTION = ["value_count","cat_describe", "distinct_count", "null_count"]
+
+SELF_DEFINED_FUNCTION = ["value_count","cat_describe", "distinct_count", "null_count", "histogram"]
 
 """
 Input:
@@ -145,6 +146,29 @@ def null_count(table, col_names, arg_str=None):
         print("Cannot resolve column: {}".format(col_names))
     return nulls
 
+"""
+Input:
+    table: the table to take a look at
+    col_names: a list of column name to do histogram
+    arg_str: extra arguements
+
+Output:
+    result: a dataframe of histogram
+"""
+def histogram(table, col_name, bins=10):
+    if bins == None:
+        bins = 10
+    if isinstance(col_name, list):
+        assert(len(col_name) == 1), "Can only take one column"
+        col_name = col_name[0]
+    assert isinstance(col_name, str), "col_name must be a string or a list of string with length 1"
+    try:
+        hist = table.select(col_name).rdd.flatMap(lambda x: x).histogram(bins)
+        result = spark.createDataFrame(zip(hist[0][:-1], hist[0][1:], hist[1]), tuple(["bin_start_value","bin_end_value", "count"]))
+    except:
+        print("Cannot resolve column: {}".format(col_name))
+    return result
+
 def main():
     sc = SparkContext('local')
     spark = SparkSession(sc)
@@ -152,9 +176,9 @@ def main():
     parking = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/parking-violations-header.csv")
     _open = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/open-violations-header.csv")
     tables = []
-    tables.append(parking)
-    tables.append(parking)
-    results = single_column_evaluate(tables, "value_count", [0, 1], [["registration_state"], ["registration_state"]])
+    tables.append(_open)
+    tables.append(_open)
+    results = single_column_evaluate(tables, "histogram", [0, 1], [["payment_amount"], ["payment_amount"]])
     for table in results:
         table.show()
 #summons_number
