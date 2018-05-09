@@ -1,6 +1,7 @@
 #table = spark.createDataFrame([('foo','lst',1),('max','lst',1),('lst','dt',2),('foo','show',3)],('k','t','v'))
 #table2 = spark.createDataFrame([('foo','max',3),('foo','vs',1),('lst','re',2)],('l','m','n'))
 import numpy as np 
+from pyspark.sql import SparkSession
 import binascii
 from csv import reader
 import time
