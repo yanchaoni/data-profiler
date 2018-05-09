@@ -169,18 +169,18 @@ def histogram(table, col_name, bins=10):
         print("Cannot resolve column: {}".format(col_name))
     return result
 
-def main():
-    sc = SparkContext('local')
-    spark = SparkSession(sc)
-    #spark.debug.maxToStringFields=100
-    parking = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/parking-violations-header.csv")
-    _open = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/open-violations-header.csv")
-    tables = []
-    tables.append(_open)
-    tables.append(_open)
-    results = single_column_evaluate(tables, "histogram", [0, 1], [["payment_amount"], ["payment_amount"]])
-    for table in results:
-        table.show()
-#summons_number
-if __name__ == "__main__":
-	main()
+# def main():
+#     sc = SparkContext('local')
+#     spark = SparkSession(sc)
+#     #spark.debug.maxToStringFields=100
+#     parking = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/parking-violations-header.csv")
+#     _open = spark.read.format('csv').options(header='true',inferschema='true').load("/user/ecc290/HW1data/open-violations-header.csv")
+#     tables = []
+#     tables.append(_open)
+#     tables.append(_open)
+#     results = single_column_evaluate(tables, "histogram", [0, 1], [["payment_amount"], ["payment_amount"]])
+#     for table in results:
+#         table.show()
+# #summons_number
+# if __name__ == "__main__":
+# 	main()

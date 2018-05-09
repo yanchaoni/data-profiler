@@ -75,8 +75,9 @@ class DataProfiler():
 		"""
 		Return records of outliers in specific columns of a table
 		"""
-		return outliers(self.tables[table_index], col_names, num_clusters, cutoff_distance, maxIterations, initializationMode, wssse)
+		return outliers(self.tables[table_index], col_names, num_clusters, cutoff_distance, maxIterations, initializationMode, wssse, self.spark)
 
-# d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv"],{0:["summons_number"]})
-# print(d.multi_set_resemble())
-
+# d = DataProfiler(["/user/ecc290/HW1data/parking-violations-header.csv", "/user/ecc290/HW1data/open-violations-header.csv"],{0:["summons_number"]})
+# d.outliers(1, ["payment_amount", "penalty_amount"], 10, 100).show()
+# d.multi_set_resemble().show()
+# d.joining_path_hash().show()
